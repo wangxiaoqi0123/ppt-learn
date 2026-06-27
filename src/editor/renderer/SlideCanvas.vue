@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import type { Slide } from '../types/slides'
-import { editorStore } from '../stores/editor'
+import type { Slide } from '../models'
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../models'
+import { editorStore } from '../store'
+import { activeGuidelines } from '../transform'
 import SlideElement from './SlideElement.vue'
 
 const props = defineProps<{
   slide: Slide
 }>()
-
-/**
- * 画布基准尺寸 (PPTist 使用 1000 x 562.5，即 16:9 比例)
- */
-const CANVAS_WIDTH = 1000
-const CANVAS_HEIGHT = 562.5
 
 const containerRef = ref<HTMLDivElement>()
 const scale = ref(1)
@@ -42,19 +38,9 @@ const canvasStyle = computed(() => ({
   background: props.slide.background || '#fff',
 }))
 
-/** 点击画布空白区域取消选中 */
+/** 点击画布空白取消选中 */
 function handleCanvasClick() {
   editorStore.deselectElement()
-}
-
-/** 选中元素 */
-function handleSelectElement(elementId: string, e: MouseEvent) {
-  editorStore.selectElement(elementId)
-}
-
-/** 拖拽移动元素 */
-function handleMoveElement(elementId: string, newLeft: number, newTop: number) {
-  editorStore.updateElement(elementId, { left: newLeft, top: newTop })
 }
 
 onMounted(() => {
@@ -71,15 +57,26 @@ onUnmounted(() => {
   <div class="canvas-container" ref="containerRef">
     <div class="canvas-wrapper" :style="wrapperStyle">
       <div class="canvas" :style="canvasStyle" @mousedown="handleCanvasClick">
+        <!-- 元素渲染 -->
         <SlideElement
           v-for="element in slide.elements"
           :key="element.id"
           :element="element"
           :selected="editorStore.state.selectedElementIds.includes(element.id)"
           :scale="scale"
-          @select="handleSelectElement"
-          @move="handleMoveElement"
         />
+
+        <!-- 对齐参考线 -->
+        <div
+          v-for="(line, index) in activeGuidelines"
+          :key="'guide-' + index"
+          class="guideline"
+          :class="line.type"
+          :style="line.type === 'vertical'
+            ? { left: line.position + 'px', top: 0, height: '100%' }
+            : { top: line.position + 'px', left: 0, width: '100%' }
+          "
+        ></div>
       </div>
     </div>
   </div>
@@ -106,5 +103,21 @@ onUnmounted(() => {
   left: 0;
   box-shadow: 0 3px 18px rgba(0, 0, 0, 0.2);
   border-radius: 2px;
+}
+
+.guideline {
+  position: absolute;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.guideline.vertical {
+  width: 1px;
+  background: #f5222d;
+}
+
+.guideline.horizontal {
+  height: 1px;
+  background: #f5222d;
 }
 </style>

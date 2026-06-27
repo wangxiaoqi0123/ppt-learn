@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { PPTElement } from '../types/slides'
+import type { PPTElement } from '../models'
+import { startDrag, startResize } from '../transform'
+import { editorStore } from '../store'
 
 const props = defineProps<{
   element: PPTElement
   selected?: boolean
   scale?: number
-}>()
-
-const emit = defineEmits<{
-  select: [elementId: string, e: MouseEvent]
-  move: [elementId: string, dx: number, dy: number]
 }>()
 
 /** 元素的定位和尺寸样式 */
@@ -51,33 +48,19 @@ const shapeStyle = computed(() => {
   }
 })
 
-/** 鼠标按下开始拖拽 */
+/** 鼠标按下：选中 + 开始拖拽 */
 function handleMouseDown(e: MouseEvent) {
   e.stopPropagation()
   e.preventDefault()
+  editorStore.selectElement(props.element.id)
+  startDrag(props.element, e, props.scale || 1)
+}
 
-  emit('select', props.element.id, e)
-
-  const currentScale = props.scale || 1
-  const startX = e.clientX
-  const startY = e.clientY
-  const startLeft = props.element.left
-  const startTop = props.element.top
-
-  const handleMouseMove = (moveEvent: MouseEvent) => {
-    // 屏幕像素差 / 缩放比例 = 画布坐标差
-    const dx = (moveEvent.clientX - startX) / currentScale
-    const dy = (moveEvent.clientY - startY) / currentScale
-    emit('move', props.element.id, startLeft + dx, startTop + dy)
-  }
-
-  const handleMouseUp = () => {
-    document.removeEventListener('mousemove', handleMouseMove)
-    document.removeEventListener('mouseup', handleMouseUp)
-  }
-
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('mouseup', handleMouseUp)
+/** 控制点按下：开始缩放 */
+function handleHandleMouseDown(handle: 'tl' | 'tr' | 'bl' | 'br', e: MouseEvent) {
+  e.stopPropagation()
+  e.preventDefault()
+  startResize(props.element, handle, e, props.scale || 1)
 }
 </script>
 
@@ -104,12 +87,12 @@ function handleMouseDown(e: MouseEvent) {
       style="object-fit: cover"
     />
 
-    <!-- 选中边框 -->
+    <!-- 选中边框 + 控制点 -->
     <div v-if="selected" class="selection-border">
-      <div class="handle tl"></div>
-      <div class="handle tr"></div>
-      <div class="handle bl"></div>
-      <div class="handle br"></div>
+      <div class="handle tl" @mousedown="handleHandleMouseDown('tl', $event)"></div>
+      <div class="handle tr" @mousedown="handleHandleMouseDown('tr', $event)"></div>
+      <div class="handle bl" @mousedown="handleHandleMouseDown('bl', $event)"></div>
+      <div class="handle br" @mousedown="handleHandleMouseDown('br', $event)"></div>
     </div>
   </div>
 </template>
@@ -141,10 +124,12 @@ function handleMouseDown(e: MouseEvent) {
   background: #fff;
   border: 2px solid #3498db;
   border-radius: 50%;
+  pointer-events: all;
+  cursor: nwse-resize;
 }
 
-.handle.tl { top: -4px; left: -4px; }
-.handle.tr { top: -4px; right: -4px; }
-.handle.bl { bottom: -4px; left: -4px; }
-.handle.br { bottom: -4px; right: -4px; }
+.handle.tl { top: -5px; left: -5px; cursor: nwse-resize; }
+.handle.tr { top: -5px; right: -5px; cursor: nesw-resize; }
+.handle.bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.handle.br { bottom: -5px; right: -5px; cursor: nwse-resize; }
 </style>

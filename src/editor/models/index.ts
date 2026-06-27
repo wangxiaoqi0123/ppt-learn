@@ -54,3 +54,19 @@ export interface Slide {
   background?: string
   elements: PPTElement[]
 }
+
+/**
+ * 编辑器状态
+ */
+export interface EditorState {
+  slides: Slide[]
+  selectedSlideId: string | null
+  selectedElementIds: string[]
+  currentSlideIndex: number
+}
+
+/**
+ * 画布常量
+ */
+export const CANVAS_WIDTH = 1000
+export const CANVAS_HEIGHT = 562.5
