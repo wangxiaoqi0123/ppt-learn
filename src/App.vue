@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import SlideCanvas from './editor/renderer/SlideCanvas.vue'
 import { editorStore } from './editor/store'
 import { copy, cut, paste } from './editor/clipboard'
+import { exportToFile, copyToClipboard } from './editor/export'
+import { exportToPPTX } from './editor/export/pptx'
 
 const { currentSlide, state } = editorStore
+const exportStatus = ref('')
 
 // ==================== 幻灯片操作 ====================
 const handleAddSlide = () => editorStore.addSlide()
@@ -56,6 +59,26 @@ const handleDeleteSelected = () => editorStore.deleteSelectedElements()
 const handleCopy = () => copy()
 const handleCut = () => cut()
 const handlePaste = () => paste()
+
+// ==================== 导出功能 ====================
+const handleExportJSON = () => {
+  exportToFile(state.slides, `ppt-demo-${Date.now()}.json`)
+  exportStatus.value = '已导出 JSON'
+  setTimeout(() => { exportStatus.value = '' }, 2000)
+}
+
+const handleExportPPTX = async () => {
+  exportStatus.value = '正在导出...'
+  const success = await exportToPPTX(state.slides, `ppt-demo-${Date.now()}.pptx`)
+  exportStatus.value = success ? '已导出 PPTX' : '导出失败'
+  setTimeout(() => { exportStatus.value = '' }, 2000)
+}
+
+const handleCopyData = async () => {
+  const success = await copyToClipboard(state.slides)
+  exportStatus.value = success ? '已复制到剪贴板' : '复制失败'
+  setTimeout(() => { exportStatus.value = '' }, 2000)
+}
 
 // ==================== 撤销/重做 ====================
 const handleUndo = () => editorStore.undo()
@@ -156,10 +179,18 @@ onUnmounted(() => {
         <button @click="handlePaste" title="粘贴 (Ctrl+V)">粘贴</button>
         <button @click="handleDeleteSelected" title="删除 (Delete)">删除</button>
       </div>
+      <span class="divider"></span>
+
+      <div class="toolbar-group">
+        <button class="btn-export" @click="handleExportPPTX" title="导出为 PPTX 文件">📥 导出 PPTX</button>
+        <button class="btn-export" @click="handleExportJSON" title="导出为 JSON 文件">导出 JSON</button>
+        <button class="btn-export" @click="handleCopyData" title="复制数据到剪贴板">复制数据</button>
+      </div>
 
       <span class="info">
         第 {{ state.currentSlideIndex + 1 }} / {{ editorStore.getSlideCount() }} 页
         <template v-if="state.selectedElementIds.length"> · 选中 {{ state.selectedElementIds.length }} 个</template>
+        <template v-if="exportStatus"> · {{ exportStatus }}</template>
       </span>
     </div>
 
@@ -228,6 +259,14 @@ onUnmounted(() => {
 
 .toolbar button:active {
   background: #1a6da8;
+}
+
+.toolbar button.btn-export {
+  background: #27ae60;
+}
+
+.toolbar button.btn-export:hover {
+  background: #229954;
 }
 
 .toolbar .divider {
