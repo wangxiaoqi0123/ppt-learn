@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Slide } from '../types/slides'
+import { editorStore } from '../stores/editor'
 import SlideElement from './SlideElement.vue'
 
 const props = defineProps<{
@@ -9,7 +10,6 @@ const props = defineProps<{
 
 /**
  * 画布基准尺寸 (PPTist 使用 1000 x 562.5，即 16:9 比例)
- * 所有元素的坐标/尺寸都基于这个基准
  */
 const CANVAS_WIDTH = 1000
 const CANVAS_HEIGHT = 562.5
@@ -17,7 +17,7 @@ const CANVAS_HEIGHT = 562.5
 const containerRef = ref<HTMLDivElement>()
 const scale = ref(1)
 
-/** 根据容器可用空间计算缩放比例，保持画布 16:9 等比适配 */
+/** 根据容器可用空间计算缩放比例 */
 function updateScale() {
   if (!containerRef.value) return
   const padding = 50
@@ -29,16 +29,11 @@ function updateScale() {
   scale.value = Math.min(scaleX, scaleY)
 }
 
-/**
- * 包裹层样式：宽高设为缩放后的实际像素尺寸
- * 这样外层 flex 居中才能正确工作
- */
 const wrapperStyle = computed(() => ({
   width: Math.round(CANVAS_WIDTH * scale.value) + 'px',
   height: Math.round(CANVAS_HEIGHT * scale.value) + 'px',
 }))
 
-/** 画布本体样式：固定基准尺寸 + transform 缩放 */
 const canvasStyle = computed(() => ({
   width: CANVAS_WIDTH + 'px',
   height: CANVAS_HEIGHT + 'px',
@@ -46,6 +41,21 @@ const canvasStyle = computed(() => ({
   transformOrigin: 'top left',
   background: props.slide.background || '#fff',
 }))
+
+/** 点击画布空白区域取消选中 */
+function handleCanvasClick() {
+  editorStore.deselectElement()
+}
+
+/** 选中元素 */
+function handleSelectElement(elementId: string, e: MouseEvent) {
+  editorStore.selectElement(elementId)
+}
+
+/** 拖拽移动元素 */
+function handleMoveElement(elementId: string, newLeft: number, newTop: number) {
+  editorStore.updateElement(elementId, { left: newLeft, top: newTop })
+}
 
 onMounted(() => {
   updateScale()
@@ -60,11 +70,15 @@ onUnmounted(() => {
 <template>
   <div class="canvas-container" ref="containerRef">
     <div class="canvas-wrapper" :style="wrapperStyle">
-      <div class="canvas" :style="canvasStyle">
+      <div class="canvas" :style="canvasStyle" @mousedown="handleCanvasClick">
         <SlideElement
           v-for="element in slide.elements"
           :key="element.id"
           :element="element"
+          :selected="editorStore.state.selectedElementIds.includes(element.id)"
+          :scale="scale"
+          @select="handleSelectElement"
+          @move="handleMoveElement"
         />
       </div>
     </div>
