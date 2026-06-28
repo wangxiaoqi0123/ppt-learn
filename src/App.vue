@@ -5,6 +5,7 @@ import { editorStore } from './editor/store'
 import { copy, cut, paste } from './editor/clipboard'
 import { exportToFile, copyToClipboard } from './editor/export'
 import { exportToPPTX } from './editor/export/pptx'
+import { importFromPPTX } from './editor/export/import-pptx'
 
 const { currentSlide, state } = editorStore
 const exportStatus = ref('')
@@ -78,6 +79,36 @@ const handleCopyData = async () => {
   const success = await copyToClipboard(state.slides)
   exportStatus.value = success ? '已复制到剪贴板' : '复制失败'
   setTimeout(() => { exportStatus.value = '' }, 2000)
+}
+
+const handleImportPPTX = () => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.pptx'
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+
+    exportStatus.value = '正在导入...'
+    try {
+      const slides = await importFromPPTX(file)
+      if (slides.length > 0) {
+        editorStore.snapshot()
+        // 替换当前所有幻灯片
+        state.slides.splice(0, state.slides.length, ...slides)
+        state.currentSlideIndex = 0
+        state.selectedElementIds = []
+        exportStatus.value = `已导入 ${slides.length} 页`
+      } else {
+        exportStatus.value = '未解析到内容'
+      }
+    } catch (err) {
+      console.error('Import failed:', err)
+      exportStatus.value = '导入失败'
+    }
+    setTimeout(() => { exportStatus.value = '' }, 3000)
+  }
+  input.click()
 }
 
 // ==================== 撤销/重做 ====================
@@ -182,6 +213,7 @@ onUnmounted(() => {
       <span class="divider"></span>
 
       <div class="toolbar-group">
+        <button class="btn-import" @click="handleImportPPTX" title="导入 PPTX 文件">📂 导入 PPTX</button>
         <button class="btn-export" @click="handleExportPPTX" title="导出为 PPTX 文件">📥 导出 PPTX</button>
         <button class="btn-export" @click="handleExportJSON" title="导出为 JSON 文件">导出 JSON</button>
         <button class="btn-export" @click="handleCopyData" title="复制数据到剪贴板">复制数据</button>
@@ -267,6 +299,14 @@ onUnmounted(() => {
 
 .toolbar button.btn-export:hover {
   background: #229954;
+}
+
+.toolbar button.btn-import {
+  background: #8e44ad;
+}
+
+.toolbar button.btn-import:hover {
+  background: #7d3c98;
 }
 
 .toolbar .divider {

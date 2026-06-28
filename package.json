@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
     "nanoid": "^5.1.16",
     "pptxgenjs": "^4.0.1",
     "vue": "^3.5.38"
